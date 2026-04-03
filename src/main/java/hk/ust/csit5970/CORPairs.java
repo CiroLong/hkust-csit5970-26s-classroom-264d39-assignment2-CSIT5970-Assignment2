@@ -102,11 +102,11 @@ public class CORPairs extends Configured implements Tool {
 			 * TODO: Your implementation goes here.
 			 */
 			// 收集当前行中的所有单词（去重，且按字母顺序排序以保证无序对只输出一次）
-			Set<String> wordSet = new TreeSet<>();
+			Set<String> wordSet = new TreeSet<String>();
 			while (doc_tokenizer.hasMoreTokens()) {
 				wordSet.add(doc_tokenizer.nextToken());
 			}
-			List<String> words = new ArrayList<>(wordSet);
+			List<String> words = new ArrayList<String>(wordSet);
 			// 生成所有无序对 (A,B) 且 A < B
 			for (int i = 0; i < words.size(); i++) {
 				for (int j = i + 1; j < words.size(); j++) {

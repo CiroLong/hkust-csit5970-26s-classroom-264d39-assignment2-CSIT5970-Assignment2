@@ -78,7 +78,7 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 		// 用于缓存当前左词的总次数和右词计数
 		private String currentLeft = null;
 		private int totalCount = 0;
-		private java.util.ArrayList<PairAndCount> buffer = new java.util.ArrayList<>();
+		private java.util.ArrayList<PairAndCount> buffer = new java.util.ArrayList<PairAndCount>();
 
 		private static class PairAndCount {
 			String right;

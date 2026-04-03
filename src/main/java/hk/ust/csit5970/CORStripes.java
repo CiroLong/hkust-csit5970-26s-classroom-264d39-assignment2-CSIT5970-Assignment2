@@ -91,7 +91,7 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
-			List<String> words = new ArrayList<>(sorted_word_set);
+			List<String> words = new ArrayList<String>(sorted_word_set);
 			// 对于每个单词 w，输出一个 stripe，包含该行中所有其他单词（每个值为1）
 			for (String w : words) {
 				MapWritable stripe = new MapWritable();
