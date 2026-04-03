@@ -43,6 +43,9 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORMapper1 extends
 			Mapper<LongWritable, Text, Text, IntWritable> {
+		private final static IntWritable ONE = new IntWritable(1);
+		private final static Text WORD = new Text();
+
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
@@ -53,6 +56,12 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			// 第一遍 MapReduce: 统计每个单词的总出现次数（Freq(A)）
+			while (doc_tokenizer.hasMoreTokens()) {
+				String w = doc_tokenizer.nextToken();
+				WORD.set(w);
+				context.write(WORD, ONE);
+			}
 		}
 	}
 
@@ -61,11 +70,19 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORReducer1 extends
 			Reducer<Text, IntWritable, Text, IntWritable> {
+		private final static IntWritable SUM = new IntWritable();
+
 		@Override
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int total = 0;
+			for (IntWritable val : values) {
+				total += val.get();
+			}
+			SUM.set(total);
+			context.write(key, SUM);
 		}
 	}
 
@@ -74,6 +91,9 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Mapper here.
 	 */
 	public static class CORPairsMapper2 extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
+		private final static IntWritable ONE = new IntWritable(1);
+		private final static PairOfStrings PAIR = new PairOfStrings();
+
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
@@ -81,6 +101,19 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			// 收集当前行中的所有单词（去重，且按字母顺序排序以保证无序对只输出一次）
+			Set<String> wordSet = new TreeSet<>();
+			while (doc_tokenizer.hasMoreTokens()) {
+				wordSet.add(doc_tokenizer.nextToken());
+			}
+			List<String> words = new ArrayList<>(wordSet);
+			// 生成所有无序对 (A,B) 且 A < B
+			for (int i = 0; i < words.size(); i++) {
+				for (int j = i + 1; j < words.size(); j++) {
+					PAIR.set(words.get(i), words.get(j));
+					context.write(PAIR, ONE);
+				}
+			}
 		}
 	}
 
@@ -88,11 +121,19 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Combiner here.
 	 */
 	private static class CORPairsCombiner2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+		private final static IntWritable SUM = new IntWritable();
+
 		@Override
 		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int total = 0;
+			for (IntWritable val : values) {
+				total += val.get();
+			}
+			SUM.set(total);
+			context.write(key, SUM);
 		}
 	}
 
@@ -101,6 +142,8 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	public static class CORPairsReducer2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, DoubleWritable> {
 		private final static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
+		private final static DoubleWritable RESULT = new DoubleWritable();
+		private final static PairOfStrings OUTPUT_KEY = new PairOfStrings();
 
 		/*
 		 * Preload the middle result file.
@@ -145,6 +188,21 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			String left = key.getLeftElement();
+			String right = key.getRightElement();
+			int freqAB = 0;
+			for (IntWritable val : values) {
+				freqAB += val.get();
+			}
+			Integer freqA = word_total_map.get(left);
+			Integer freqB = word_total_map.get(right);
+			if (freqA == null || freqB == null) {
+				return; // 理论上不会发生
+			}
+			double cor = freqAB / ((double) freqA * freqB);
+			OUTPUT_KEY.set(left, right);
+			RESULT.set(cor);
+			context.write(OUTPUT_KEY, RESULT);
 		}
 	}
 

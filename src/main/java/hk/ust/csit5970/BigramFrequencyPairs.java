@@ -53,6 +53,17 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			// 遍历单词序列，生成相邻的二元组 (prev, curr)，并输出 <bigram, 1>
+			if (words.length > 1) {
+				String prev = words[0];
+				for (int i = 1; i < words.length; i++) {
+					String curr = words[i];
+					if (curr.length() == 0) continue;
+					BIGRAM.set(prev, curr);
+					context.write(BIGRAM, ONE);
+					prev = curr;
+				}
+			}
 		}
 	}
 
@@ -64,6 +75,16 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 
 		// Reuse objects.
 		private final static FloatWritable VALUE = new FloatWritable();
+		// 用于缓存当前左词的总次数和右词计数
+		private String currentLeft = null;
+		private int totalCount = 0;
+		private java.util.ArrayList<PairAndCount> buffer = new java.util.ArrayList<>();
+
+		private static class PairAndCount {
+			String right;
+			int count;
+			PairAndCount(String r, int c) { right = r; count = c; }
+		}
 
 		@Override
 		public void reduce(PairOfStrings key, Iterable<IntWritable> values,
@@ -71,6 +92,50 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			String left = key.getLeftElement();
+			String right = key.getRightElement();
+			int sum = 0;
+			for (IntWritable val : values) {
+				sum += val.get();
+			}
+			// 如果遇到新的左词，先输出上一个左词的总次数和所有相对频率
+			if (currentLeft != null && !currentLeft.equals(left)) {
+				// 输出总次数（右词为空字符串）
+				PairOfStrings totalKey = new PairOfStrings();
+				totalKey.set(currentLeft, "");
+				VALUE.set(totalCount);
+				context.write(totalKey, VALUE);
+				// 输出每个右词的相对频率
+				for (PairAndCount p : buffer) {
+					PairOfStrings freqKey = new PairOfStrings();
+					freqKey.set(currentLeft, p.right);
+					VALUE.set((float) p.count / totalCount);
+					context.write(freqKey, VALUE);
+				}
+				// 重置缓存
+				buffer.clear();
+				totalCount = 0;
+			}
+			currentLeft = left;
+			totalCount += sum;
+			buffer.add(new PairAndCount(right, sum));
+		}
+
+		@Override
+		protected void cleanup(Context context) throws IOException, InterruptedException {
+			// 输出最后一个左词的结果
+			if (currentLeft != null) {
+				PairOfStrings totalKey = new PairOfStrings();
+				totalKey.set(currentLeft, "");
+				VALUE.set(totalCount);
+				context.write(totalKey, VALUE);
+				for (PairAndCount p : buffer) {
+					PairOfStrings freqKey = new PairOfStrings();
+					freqKey.set(currentLeft, p.right);
+					VALUE.set((float) p.count / totalCount);
+					context.write(freqKey, VALUE);
+				}
+			}
 		}
 	}
 	
@@ -84,6 +149,12 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int sum = 0;
+			for (IntWritable val : values) {
+				sum += val.get();
+			}
+			SUM.set(sum);
+			context.write(key, SUM);
 		}
 	}
 

@@ -33,6 +33,9 @@ public class CORStripes extends Configured implements Tool {
 	 */
 	private static class CORMapper1 extends
 			Mapper<LongWritable, Text, Text, IntWritable> {
+		private final static IntWritable ONE = new IntWritable(1);
+		private final static Text WORD = new Text();
+
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
@@ -43,6 +46,11 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+				String w = doc_tokenizer.nextToken();
+				WORD.set(w);
+				context.write(WORD, ONE);
+			}
 		}
 	}
 
@@ -51,11 +59,19 @@ public class CORStripes extends Configured implements Tool {
 	 */
 	private static class CORReducer1 extends
 			Reducer<Text, IntWritable, Text, IntWritable> {
+		private final static IntWritable SUM = new IntWritable();
+
 		@Override
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			int total = 0;
+			for (IntWritable val : values) {
+				total += val.get();
+			}
+			SUM.set(total);
+			context.write(key, SUM);
 		}
 	}
 
@@ -75,6 +91,17 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			List<String> words = new ArrayList<>(sorted_word_set);
+			// 对于每个单词 w，输出一个 stripe，包含该行中所有其他单词（每个值为1）
+			for (String w : words) {
+				MapWritable stripe = new MapWritable();
+				for (String other : words) {
+					if (!w.equals(other)) {
+						stripe.put(new Text(other), new IntWritable(1));
+					}
+				}
+				context.write(new Text(w), stripe);
+			}
 		}
 	}
 
@@ -89,6 +116,20 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			MapWritable merged = new MapWritable();
+			for (MapWritable stripe : values) {
+				for (Map.Entry<Writable, Writable> entry : stripe.entrySet()) {
+					Text word = (Text) entry.getKey();
+					IntWritable count = (IntWritable) entry.getValue();
+					IntWritable existing = (IntWritable) merged.get(word);
+					if (existing == null) {
+						merged.put(word, new IntWritable(count.get()));
+					} else {
+						merged.put(word, new IntWritable(existing.get() + count.get()));
+					}
+				}
+			}
+			context.write(key, merged);
 		}
 	}
 
@@ -98,6 +139,8 @@ public class CORStripes extends Configured implements Tool {
 	public static class CORStripesReducer2 extends Reducer<Text, MapWritable, PairOfStrings, DoubleWritable> {
 		private static Map<String, Integer> word_total_map = new HashMap<String, Integer>();
 		private static IntWritable ZERO = new IntWritable(0);
+		private final static PairOfStrings OUTPUT_KEY = new PairOfStrings();
+		private final static DoubleWritable RESULT = new DoubleWritable();
 
 		/*
 		 * Preload the middle result file.
@@ -142,6 +185,35 @@ public class CORStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			// 合并所有 stripe
+			MapWritable merged = new MapWritable();
+			for (MapWritable stripe : values) {
+				for (Map.Entry<Writable, Writable> entry : stripe.entrySet()) {
+					Text word = (Text) entry.getKey();
+					IntWritable count = (IntWritable) entry.getValue();
+					IntWritable existing = (IntWritable) merged.get(word);
+					if (existing == null) {
+						merged.put(word, new IntWritable(count.get()));
+					} else {
+						merged.put(word, new IntWritable(existing.get() + count.get()));
+					}
+				}
+			}
+			String left = key.toString();
+			Integer freqA = word_total_map.get(left);
+			if (freqA == null) return;
+			// 输出每个无序对 (left, right) 且 left < right
+			for (Map.Entry<Writable, Writable> entry : merged.entrySet()) {
+				String right = ((Text) entry.getKey()).toString();
+				if (left.compareTo(right) >= 0) continue; // 避免重复，只输出一次
+				Integer freqB = word_total_map.get(right);
+				if (freqB == null) continue;
+				int freqAB = ((IntWritable) entry.getValue()).get();
+				double cor = freqAB / ((double) freqA * freqB);
+				OUTPUT_KEY.set(left, right);
+				RESULT.set(cor);
+				context.write(OUTPUT_KEY, RESULT);
+			}
 		}
 	}
 

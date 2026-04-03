@@ -54,6 +54,17 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			if (words.length > 1) {
+				KEY.set(words[0]);
+				for (int i = 1; i < words.length; i++) {
+					String curr = words[i];
+					if (curr.length() == 0) continue;
+					STRIPE.increment(curr);          // 在当前 stripe 中增加右词计数
+					context.write(KEY, STRIPE);      // 输出左词和当前 stripe
+					KEY.set(curr);                   // 移动窗口：左词变为当前词
+					STRIPE.clear();                  // 清空 stripe 为下一个二元组准备
+				}
+			}
 		}
 	}
 
@@ -75,6 +86,29 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			// 合并所有 stripe，得到左词 key 对应的所有右词及其总频次
+			SUM_STRIPES.clear();
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
+			// 计算总次数（所有右词频次之和）
+			int total = 0;
+			for (Integer v : SUM_STRIPES.values()) {
+				total += v;
+			}
+			String left = key.toString();
+			// 输出总次数（右词为空）
+			BIGRAM.set(left, "");
+			FREQ.set(total);
+			context.write(BIGRAM, FREQ);
+			// 输出每个右词的相对频率
+			for (Map.Entry<String, Integer> entry : SUM_STRIPES.entrySet()) {
+				String right = entry.getKey();
+				int count = entry.getValue();
+				BIGRAM.set(left, right);
+				FREQ.set((float) count / total);
+				context.write(BIGRAM, FREQ);
+			}
 		}
 	}
 
@@ -94,6 +128,11 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			SUM_STRIPES.clear();
+			for (HashMapStringIntWritable stripe : stripes) {
+				SUM_STRIPES.plus(stripe);
+			}
+			context.write(key, SUM_STRIPES);
 		}
 	}
 
