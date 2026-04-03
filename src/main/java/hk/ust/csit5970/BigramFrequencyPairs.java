@@ -53,7 +53,6 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
-			// 遍历单词序列，生成相邻的二元组 (prev, curr)，并输出 <bigram, 1>
 			if (words.length > 1) {
 				String prev = words[0];
 				for (int i = 1; i < words.length; i++) {
@@ -75,7 +74,7 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 
 		// Reuse objects.
 		private final static FloatWritable VALUE = new FloatWritable();
-		// 用于缓存当前左词的总次数和右词计数
+
 		private String currentLeft = null;
 		private int totalCount = 0;
 		private java.util.ArrayList<PairAndCount> buffer = new java.util.ArrayList<PairAndCount>();

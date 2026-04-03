@@ -59,10 +59,10 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 				for (int i = 1; i < words.length; i++) {
 					String curr = words[i];
 					if (curr.length() == 0) continue;
-					STRIPE.increment(curr);          // 在当前 stripe 中增加右词计数
-					context.write(KEY, STRIPE);      // 输出左词和当前 stripe
-					KEY.set(curr);                   // 移动窗口：左词变为当前词
-					STRIPE.clear();                  // 清空 stripe 为下一个二元组准备
+					STRIPE.increment(curr);          
+					context.write(KEY, STRIPE);      
+					KEY.set(curr);                   
+					STRIPE.clear();                  
 				}
 			}
 		}
