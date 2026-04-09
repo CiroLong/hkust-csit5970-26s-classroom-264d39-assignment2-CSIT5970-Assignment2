@@ -64,7 +64,7 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 					STRIPE.increment(curr);
 
 					KEY.set(prev);
-					context.write(KEY, stripe);
+					context.write(KEY, STRIPE);
 					STRIPE.clear();
 				}
 			}
