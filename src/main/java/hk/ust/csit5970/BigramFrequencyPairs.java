@@ -60,9 +60,12 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 					if (curr.length() == 0) continue;
 					BIGRAM.set(prev, curr);
 					context.write(BIGRAM, ONE);
+					// (w,*)
+					BIGRAM.set(prev, "*");
+					context.write(BIGRAM, ONE);
 					prev = curr;
 				}
-			}
+        	}
 		}
 	}
 
@@ -74,16 +77,9 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 
 		// Reuse objects.
 		private final static FloatWritable VALUE = new FloatWritable();
-
+    	private float total = 0;
 		private String currentLeft = null;
-		private int totalCount = 0;
-		private java.util.ArrayList<PairAndCount> buffer = new java.util.ArrayList<PairAndCount>();
 
-		private static class PairAndCount {
-			String right;
-			int count;
-			PairAndCount(String r, int c) { right = r; count = c; }
-		}
 
 		@Override
 		public void reduce(PairOfStrings key, Iterable<IntWritable> values,
@@ -91,49 +87,23 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
-			String left = key.getLeftElement();
-			String right = key.getRightElement();
 			int sum = 0;
 			for (IntWritable val : values) {
 				sum += val.get();
 			}
-			// 如果遇到新的左词，先输出上一个左词的总次数和所有相对频率
-			if (currentLeft != null && !currentLeft.equals(left)) {
-				// 输出总次数（右词为空字符串）
-				PairOfStrings totalKey = new PairOfStrings();
-				totalKey.set(currentLeft, "");
-				VALUE.set(totalCount);
-				context.write(totalKey, VALUE);
-				// 输出每个右词的相对频率
-				for (PairAndCount p : buffer) {
-					PairOfStrings freqKey = new PairOfStrings();
-					freqKey.set(currentLeft, p.right);
-					VALUE.set((float) p.count / totalCount);
-					context.write(freqKey, VALUE);
-				}
-				// 重置缓存
-				buffer.clear();
-				totalCount = 0;
-			}
-			currentLeft = left;
-			totalCount += sum;
-			buffer.add(new PairAndCount(right, sum));
-		}
+			String left = key.getLeftElement();
+			String right = key.getRightElement();
 
-		@Override
-		protected void cleanup(Context context) throws IOException, InterruptedException {
-			// 输出最后一个左词的结果
-			if (currentLeft != null) {
-				PairOfStrings totalKey = new PairOfStrings();
-				totalKey.set(currentLeft, "");
-				VALUE.set(totalCount);
-				context.write(totalKey, VALUE);
-				for (PairAndCount p : buffer) {
-					PairOfStrings freqKey = new PairOfStrings();
-					freqKey.set(currentLeft, p.right);
-					VALUE.set((float) p.count / totalCount);
-					context.write(freqKey, VALUE);
-				}
+			if (currentLeft == null || !left.equals(currentLeft)) {
+				currentLeft = left;
+				total = 0;
+			}
+
+			if (right.equals("*")) {
+				total = sum;
+			} else {
+				VALUE.set((float) sum / total);
+				context.write(key, VALUE);
 			}
 		}
 	}
