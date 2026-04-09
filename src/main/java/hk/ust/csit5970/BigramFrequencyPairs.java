@@ -61,7 +61,7 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 					BIGRAM.set(prev, curr);
 					context.write(BIGRAM, ONE);
 					// (w,*)
-					BIGRAM.set(prev, "*");
+					BIGRAM.set(prev, "");
 					context.write(BIGRAM, ONE);
 					prev = curr;
 				}
@@ -99,9 +99,11 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 				total = 0;
 			}
 
-			if (right.equals("*")) {
+			if (right.equals("")) {
 				total = sum;
-			} else {
+				VALUE.set(total);
+    			context.write(key, VALUE);
+			} else if(total != 0){
 				VALUE.set((float) sum / total);
 				context.write(key, VALUE);
 			}
